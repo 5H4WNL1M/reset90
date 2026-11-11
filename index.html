@@ -1015,6 +1015,8 @@ const MOVE = [
    cues:["Build toward the target — add ~1,000 steps a week.","Break it into a few short walks if easier.","Counts every day, including rest days."]},
   {id:"zone2",nm:"Zone 2 Cardio",fig:"walk",sets:"25–35 min · 2× / week",
    cues:["Brisk walk, cycle, or incline treadmill.","Pace where you can talk but not sing.","Do it on non-lifting days (Tue / Sat)."]},
+  {id:"core",nm:"Daily Core",fig:"dead_bug",sets:"2 × 10 / side · slow",
+   cues:["Dead bug: lie on your back, arms up, knees bent at 90°.","Slowly lower the opposite arm and leg, keep your lower back pressed to the floor.","Breathe out as you extend — don't let your belly bulge up.","This tightens the deep core that pulls your waist in. Fat loss (deficit + steps) is what shrinks the belly itself."]},
 ];
 // weekly schedule: 0=Sun..6=Sat. Mon/Wed/Fri lifting.
 const SCHED = {1:"A",3:"B",5:"C"};
@@ -1094,7 +1096,7 @@ const ATTR_ORDER=["STR","DIS","VIT","CLA"];
 // map an activity/meal/habit id -> attribute. Workouts=STR, meals=DIS, steps/zone2=VIT, health per-habit.
 function attrOf(id){
   if(id.startsWith("meal_"))return "DIS";
-  if(id==="steps"||id==="zone2")return "VIT";
+  if(id==="steps"||id==="zone2"||id==="core")return "VIT";
   if(id.startsWith("h_")){ const h=HEALTH.find(x=>x.id===id); return h?h.attr:"CLA"; }
   return "STR"; // workout moves
 }
@@ -1265,9 +1267,10 @@ function shiftDay(k,n){ const d=parseKey(k); d.setDate(d.getDate()+n); return to
 function activitiesFor(k){
   const list=[]; const w=SCHED[dow(k)];
   if(w) WORKOUTS[w].items.forEach(it=>list.push({...it,kind:"lift"}));
-  // steps every day; zone2 only on move days
+  // steps every day; zone2 only on move days; daily core every day
   list.push({...MOVE[0],kind:"move"});
   if((MOVE_DAYS[dow(k)]||[]).includes("zone2")) list.push({...MOVE[1],kind:"move"});
+  list.push({...MOVE[2],kind:"move"});
   return list;
 }
 // "hard" targets that each must be done: workouts + movement + meals

@@ -641,7 +641,16 @@ function parseMeal(text){
   const items=[];
   // split on commas, "and", "+", newlines
   const parts=text.toLowerCase().split(/,|\band\b|\+|\n|;/).map(s=>s.trim()).filter(Boolean);
-  for(const part of parts){
+  for(const rawPart of parts){
+    let part=rawPart;
+    // fraction multiplier: "1/2", "1/3", "1/4", or words half / quarter / third
+    let fracMult=1, fracLabel="";
+    const fm=part.match(/(?:^|\s)(\d+)\s*\/\s*(\d+)\b/);
+    if(fm){ const num=parseFloat(fm[1]), den=parseFloat(fm[2]); if(den>0){ fracMult=num/den; fracLabel=fm[1]+"/"+fm[2]+" "; part=part.replace(fm[0]," ").trim(); } }
+    else if(/\bhalf\b/.test(part)){ fracMult=0.5; fracLabel="½ "; part=part.replace(/\bhalf\b(\s+of)?(\s+a)?/," ").trim(); }
+    else if(/\b(quarter)\b/.test(part)){ fracMult=0.25; fracLabel="¼ "; part=part.replace(/\bquarter\b(\s+of)?(\s+a)?/," ").trim(); }
+    else if(/\b(third)\b/.test(part)){ fracMult=1/3; fracLabel="⅓ "; part=part.replace(/\bthird\b(\s+of)?(\s+a)?/," ").trim(); }
+    else if(/\b(three\s*quarters?|3\s*quarters?)\b/.test(part)){ fracMult=0.75; fracLabel="¾ "; part=part.replace(/\b(three\s*quarters?|3\s*quarters?)\b(\s+of)?(\s+a)?/," ").trim(); }
     // extract leading quantity: number + optional unit (g, ml, x)
     let qty=null, grams=null, count=null;
     let m=part.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|kg|ml|l)\b/);
@@ -657,7 +666,7 @@ function parseMeal(text){
     // find best food match (longest key contained in the part)
     let bestKey=null;
     for(const key in FOODDB){ if(part.includes(key)){ if(!bestKey||key.length>bestKey.length)bestKey=key; } }
-    if(!bestKey){ items.push({raw:part,matched:false,p:0,c:0}); continue; }
+    if(!bestKey){ items.push({raw:rawPart,matched:false,p:0,c:0}); continue; }
     const f=FOODDB[bestKey];
     let p=0,c=0,amountLabel="";
     if(f.unit==="g"||f.unit==="ml"){
@@ -671,7 +680,8 @@ function parseMeal(text){
       const n = count!=null?count:1;
       p=f.p*n; c=f.c*n; amountLabel=n+"×";
     }
-    items.push({raw:part,matched:true,food:bestKey,amount:amountLabel,p:Math.round(p),c:Math.round(c)});
+    if(fracMult!==1){ p*=fracMult; c*=fracMult; amountLabel=fracLabel+(f.unit==="ea"?"portion":amountLabel); }
+    items.push({raw:rawPart,matched:true,food:bestKey,amount:amountLabel,p:Math.round(p),c:Math.round(c)});
   }
   const totP=items.reduce((a,i)=>a+i.p,0), totC=items.reduce((a,i)=>a+i.c,0);
   return {items, protein:Math.round(totP), kcal:Math.round(totC)};

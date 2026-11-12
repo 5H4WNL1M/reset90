@@ -714,7 +714,10 @@ const BG = (() => {
 })();
 let _btT0=performance.now();
 let _hitUntil=0,_attackUntil=0,_deadBurst=0;
-function battleProgress(k){ const c=dayCounts(k); const total=c.total||1; return {done:c.done,total,frac:c.done/total}; }
+const KILL_AT=0.75; // enemy dies once you clear 3/4 of the day's targets
+function battleProgress(k){ const c=dayCounts(k); const total=c.total||1;
+  const raw=c.done/total; const frac=Math.min(1, raw/KILL_AT); // scale so 75% done = full damage
+  return {done:c.done,total,frac,raw}; }
 function animateBattle(){
   const c=document.getElementById("avatar"); if(!c){return;}
   const ctx=c.getContext("2d"); const W=c.width,H=c.height;

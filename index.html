@@ -1270,10 +1270,11 @@ function shiftDay(k,n){ const d=parseKey(k); d.setDate(d.getDate()+n); return to
 function activitiesFor(k){
   const list=[]; const w=SCHED[dow(k)];
   if(w) WORKOUTS[w].items.forEach(it=>list.push({...it,kind:"lift"}));
-  // steps every day; zone2 only on move days; daily core every day
+  // steps every day; zone2 only on move days
   list.push({...MOVE[0],kind:"move"});
   if((MOVE_DAYS[dow(k)]||[]).includes("zone2")) list.push({...MOVE[1],kind:"move"});
-  list.push({...MOVE[2],kind:"move"});
+  // daily core added 2026-11-12 — only counts from that day onward so past days aren't penalised
+  if(k>="2026-11-12") list.push({...MOVE[2],kind:"move"});
   return list;
 }
 // "hard" targets that each must be done: workouts + movement + meals

@@ -714,10 +714,24 @@ const BG = (() => {
 })();
 let _btT0=performance.now();
 let _hitUntil=0,_attackUntil=0,_deadBurst=0;
-const KILL_AT=0.75; // enemy dies once you clear 3/4 of the day's targets
-function battleProgress(k){ const c=dayCounts(k); const total=c.total||1;
-  const raw=c.done/total; const frac=Math.min(1, raw/KILL_AT); // scale so 75% done = full damage
-  return {done:c.done,total,frac,raw}; }
+// Boss dies when the day's essential work is done:
+//  workout days -> all lifts + 3 meals + 3 rituals ; rest days -> walk + 3 meals + 3 rituals.
+function bossTargets(k){
+  const d=state.days[k]||{done:{}};
+  const w=SCHED[dow(k)];
+  const ids=[];
+  if(w){ WORKOUTS[w].items.forEach(it=>ids.push(it.id)); }   // workout day: every lift
+  else { ids.push("steps"); }                                 // rest day: the walk
+  const mealDone=MEALS.filter(m=>d.done["meal_"+m.id]).length;
+  const total=ids.length + 3 /*meals*/ + 3 /*rituals*/;
+  const done=ids.filter(id=>d.done[id]).length
+           + Math.min(3,mealDone)
+           + Math.min(3,healthDone(k));
+  return {done,total};
+}
+function battleProgress(k){ const b=bossTargets(k); const total=b.total||1;
+  const frac=Math.min(1, b.done/total);
+  return {done:b.done,total,frac,raw:b.done/total}; }
 function animateBattle(){
   const c=document.getElementById("avatar"); if(!c){return;}
   const ctx=c.getContext("2d"); const W=c.width,H=c.height;

@@ -1403,7 +1403,7 @@ const BADGES = [
 /* ---------- State ---------- */
 const KEY="reset90.v1";
 const START_KEY="reset90.start";
-const APP_VERSION="85"; // bumped on each build; shown in Guide, used for auto-update
+const APP_VERSION="86"; // bumped on each build; shown in Guide, used for auto-update
 // Check the server copy for a newer version; if found, reload bypassing cache (no reinstall needed).
 async function checkForUpdate(){
   try{
@@ -1800,7 +1800,7 @@ function activityCard(it,kind,k){
       <button class="chk" aria-label="Mark done">${CHECK}<span class="pts">+${pts}</span></button>
     </div>
     <div class="detail"><div class="detail-in">
-      <div class="bigfig${EXIMG[it.fig]?" photo":""}">${EXIMG[it.fig]?`<img src="${EXIMG[it.fig]}" alt="${it.nm}" loading="lazy">`:(FIG[it.fig]||"")}</div>
+      ${EXIMG[it.fig]?`<div class="bigfig photo"><img src="${EXIMG[it.fig]}" alt="${it.nm}" loading="lazy"></div>`:""}
       <div><span class="setsbadge">${it.sets}</span></div>
       <div><h4>How to perform</h4><ul class="cues">${it.cues.map(c=>`<li>${c}</li>`).join("")}</ul></div>
     </div></div>`;

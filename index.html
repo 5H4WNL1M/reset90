@@ -806,7 +806,7 @@ const BG = (() => {
   return {forLevel, forDay, count:imgs.length};
 })();
 let _btT0=performance.now();
-let _hitUntil=0,_attackUntil=0,_deadBurst=0;
+let _hitUntil=0,_attackUntil=0,_deadBurst=0,_bossLanded=false,_bossStruck=false;
 // Boss dies when the day's essential work is done:
 //  workout days -> all lifts + 3 meals + 3 rituals ; rest days -> walk + 3 meals + 3 rituals.
 function bossTargets(k){
@@ -894,27 +894,60 @@ function animateBattle(){
   SPR.draw(ctx,SPR.HERO_IDX, 14+lunge, groundY+hbob, HSH, false);
 
   if(squad.onBoss && dayWon){
-    // ---- BOSS FINISHER: one big enemy, centre-right, dying ----
+    // ---- BOSS FINISHER: staged — enter, hold, strike, perish ----
     const BSH=130; const im=SPR.imgs[eIdx];
     const ew=im&&im.naturalWidth? im.naturalWidth*(BSH/im.naturalHeight):100;
     const ex=W-ew-26;
-    if(!_deadBurst)_deadBurst=now;
-    const since=now-_deadBurst; const a=Math.max(0,1-since/640);
-    if(a>0) SPR.draw(ctx,eIdx, ex, groundY+ebob, BSH, true, a*0.85, true);
-    const bp=Math.min(1,since/480);
-    ctx.fillStyle="#ffe14d";
-    for(let i=0;i<14;i++){const ang=i/14*Math.PI*2; const r=bp*44;
-      const px=ex+ew/2+Math.cos(ang)*r, py=groundY-BSH/2+Math.sin(ang)*r;
-      ctx.globalAlpha=1-bp; ctx.fillRect(px-3,py-3,6,6); ctx.globalAlpha=1;}
-    if(since>150){ ctx.fillStyle="#b4ff39";ctx.font="800 15px Inter,sans-serif";ctx.textAlign="center";
-      ctx.globalAlpha=Math.max(0,1-(since-150)/900);
-      ctx.fillText("DAY CLEARED", ex+ew/2, groundY-BSH-4); ctx.globalAlpha=1; }
-    // resolve any pending hit on the boss
-    if(_pendingHit && now>=_pendingHit.at){
-      spawnHitFX(ex+ew/2, groundY+ebob-BSH*0.5, "#ff2d6b", true, ex-10);
-      haptic([30,30,60]); _pendingHit=null;
+    if(!_deadBurst)_deadBurst=now;         // t0 = moment the 3rd minion fell
+    const t=now-_deadBurst;
+    // phase timings (ms)
+    const ENTER=0, HOLD=820, STRIKE=1180, PERISH=1500;
+    if(t<STRIKE){
+      // --- ENTRANCE + HOLD: boss rises in and stands at full HP ---
+      const rise=Math.min(1,t/560);                 // 0..1 ease-in
+      const e=rise<1? (1-Math.pow(1-rise,3)) : 1;    // easeOutCubic
+      const y=groundY+ebob + (1-e)*22;               // slides up from below
+      const scl=0.7+0.3*e;                           // scales up as it arrives
+      const pulse=1+Math.sin(t/120)*0.015;
+      SPR.draw(ctx,eIdx, ex+ew*(1-scl)/2, y - BSH*(scl-1), BSH*scl*pulse, true, e, false);
+      // BOSS name + full HP bar
+      const bw=Math.max(ew,90), bx=ex+(ew-bw)/2, by=groundY-BSH-16;
+      ctx.globalAlpha=e;
+      ctx.fillStyle="#000";ctx.fillRect(bx,by,bw,9);
+      // HP stays full during entrance, then drains during the strike wind-up
+      const drain = t<HOLD? 0 : Math.min(1,(t-HOLD)/(STRIKE-HOLD));
+      ctx.fillStyle="#ff2d6b";ctx.fillRect(bx,by,bw*(1-drain),9);
+      ctx.strokeStyle="#333";ctx.lineWidth=1;ctx.strokeRect(bx+.5,by+.5,bw-1,8);
+      ctx.fillStyle="#ffd166";ctx.font="800 16px Inter,sans-serif";ctx.textAlign="center";
+      ctx.fillText("★ "+SPR.nameFor(eIdx)+" ★", ex+ew/2, by-8);
+      ctx.fillStyle="rgba(255,45,107,.85)";ctx.font="800 9px Inter,sans-serif";
+      ctx.fillText("DAY BOSS", ex+ew/2, by-24);
+      ctx.globalAlpha=1;
+      // a warning spark as it lands
+      if(t>500 && t<560 && !_bossLanded){ _bossLanded=true; spawnHitFX(ex+ew/2, y-BSH*0.5, "#ff2d6b", false, ex-10); }
+      // the finishing strike at HOLD: big spark + shake + haptic (fires once)
+      if(t>=HOLD && !_bossStruck){ _bossStruck=true;
+        spawnHitFX(ex+ew/2, y-BSH*0.5, "#ff2d6b", true, ex-10);
+        _shakeMag=7; _shakeUntil=now+320; haptic([30,30,70]);
+      }
+    } else {
+      // --- PERISH: boss dies, burst + DAY CLEARED, fades out ---
+      const sd=t-STRIKE; const a=Math.max(0,1-sd/640);
+      if(a>0) SPR.draw(ctx,eIdx, ex, groundY+ebob, BSH, true, a*0.85, true);
+      const bp=Math.min(1,sd/480);
+      ctx.fillStyle="#ffe14d";
+      for(let i=0;i<16;i++){const ang=i/16*Math.PI*2; const r=bp*52;
+        const px=ex+ew/2+Math.cos(ang)*r, py=groundY-BSH/2+Math.sin(ang)*r;
+        ctx.globalAlpha=1-bp; ctx.fillRect(px-3.5,py-3.5,7,7); ctx.globalAlpha=1;}
+      ctx.fillStyle="#b4ff39";ctx.font="800 16px Inter,sans-serif";ctx.textAlign="center";
+      ctx.globalAlpha=Math.max(0,1-(sd-120)/1100);
+      ctx.fillText("DAY CLEARED", ex+ew/2, groundY-BSH-4); ctx.globalAlpha=1;
     }
+    // swallow any leftover pending hit (already handled by the staged strike)
+    _pendingHit=null;
   } else {
+    // not on the boss yet → reset the boss one-shot flags so the sequence replays next time
+    _bossLanded=false; _bossStruck=false;
     // ---- THREE MINIONS AT ONCE, each with its own HP ----
     _deadBurst=0;
     const MSH=78;                        // minion sprite height
@@ -1370,7 +1403,7 @@ const BADGES = [
 /* ---------- State ---------- */
 const KEY="reset90.v1";
 const START_KEY="reset90.start";
-const APP_VERSION="84"; // bumped on each build; shown in Guide, used for auto-update
+const APP_VERSION="85"; // bumped on each build; shown in Guide, used for auto-update
 // Check the server copy for a newer version; if found, reload bypassing cache (no reinstall needed).
 async function checkForUpdate(){
   try{

@@ -1369,6 +1369,22 @@ const BADGES = [
 /* ---------- State ---------- */
 const KEY="reset90.v1";
 const START_KEY="reset90.start";
+const APP_VERSION="83"; // bumped on each build; shown in Guide, used for auto-update
+// Check the server copy for a newer version; if found, reload bypassing cache (no reinstall needed).
+async function checkForUpdate(){
+  try{
+    const url=location.pathname+"?v="+Date.now();
+    const r=await fetch(url,{cache:"no-store"});
+    if(!r.ok) return;
+    const txt=await r.text();
+    const m=txt.match(/APP_VERSION="(\d+)"/);
+    if(m && m[1] && Number(m[1])>Number(APP_VERSION)){
+      // a newer version is live — hard reload to pick it up
+      try{ if(window.caches){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){}
+      location.replace(location.pathname+"?v="+m[1]);
+    }
+  }catch(e){}
+}
 
 /* ---- Durable storage: localStorage (fast) mirrored to IndexedDB (survives iOS eviction better) ---- */
 let _idb=null;
@@ -1382,6 +1398,49 @@ function idbGet(k){ return new Promise((res)=>{ try{ if(!_idb)return res(null);
   const tx=_idb.transaction("kv","readonly"); const rq=tx.objectStore("kv").get(k);
   rq.onsuccess=()=>res(rq.result??null); rq.onerror=()=>res(null);
 }catch(e){res(null);} }); }
+function idbGetAllKeys(){ return new Promise((res)=>{ try{ if(!_idb)return res([]);
+  const tx=_idb.transaction("kv","readonly"); const rq=tx.objectStore("kv").getAllKeys();
+  rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>res([]);
+}catch(e){res([]);} }); }
+
+/* ---- Rolling, untouchable backups: survive a reinstall/empty-overwrite ----
+   Snapshots are written under their OWN keys (reset90.snap.<ts>) that the normal
+   save() path never clears, in BOTH localStorage and IndexedDB. We keep the most
+   recent few NON-EMPTY states, so an accidental empty can never erase history. */
+const SNAP_PREFIX="reset90.snap.";
+const SNAP_KEEP=6;
+let _lastSnapSig="";
+function snapshotBackup(){
+  try{
+    if(dayCount(state)<=0) return;                 // never snapshot an empty state
+    const json=JSON.stringify(state);
+    const sig=json.length+":"+dayCount(state);
+    if(sig===_lastSnapSig) return;                 // skip if nothing meaningful changed
+    _lastSnapSig=sig;
+    const ts=Date.now(); const key=SNAP_PREFIX+ts;
+    try{ localStorage.setItem(key,json); }catch(e){}
+    idbSet(key,json);
+    try{ localStorage.setItem("reset90.lastAutoBackup",String(ts)); }catch(e){}
+    pruneSnapshots();
+  }catch(e){}
+}
+function lsSnapshotKeys(){ const out=[]; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf(SNAP_PREFIX)===0)out.push(k); } }catch(e){} return out.sort(); }
+function pruneSnapshots(){
+  try{ const keys=lsSnapshotKeys(); // oldest first
+    while(keys.length>SNAP_KEEP){ const old=keys.shift(); try{localStorage.removeItem(old);}catch(e){} idbDel(old); }
+  }catch(e){}
+}
+function idbDel(k){ try{ if(!_idb)return; const tx=_idb.transaction("kv","readwrite"); tx.objectStore("kv").delete(k); }catch(e){} }
+async function getAllSnapshots(){
+  const map={};
+  // localStorage snapshots
+  lsSnapshotKeys().forEach(k=>{ try{ const o=JSON.parse(localStorage.getItem(k)); if(o)map[k]=o; }catch(e){} });
+  // IndexedDB snapshots (may outlive localStorage)
+  try{ const ks=await idbGetAllKeys();
+    for(const k of ks){ if(typeof k==="string" && k.indexOf(SNAP_PREFIX)===0 && !map[k]){ const v=await idbGet(k); if(v){ try{map[k]=JSON.parse(v);}catch(e){} } } }
+  }catch(e){}
+  return Object.values(map);
+}
 
 /* ---- URL-hash persistence: survives even when iOS wipes localStorage/IDB, because it lives in the link ---- */
 // compact encode/decode of state <-> base64 string (no external libs)
@@ -1404,11 +1463,21 @@ function readHash(){
 }
 function load(){ try{const r=localStorage.getItem(KEY);const s=r?JSON.parse(r):{days:{},bestStreak:0};
   if(!s.weight)s.weight=102; return s;}catch(e){return{days:{},bestStreak:0,weight:102};} }
+// Guard: never let an empty in-memory state clobber a non-empty stored copy.
+function safeToWrite(){
+  // if current state has real days, always safe
+  if(dayCount(state)>0) return true;
+  // state is empty — only allow writing if NO store currently holds real data
+  try{ const ls=localStorage.getItem(KEY); if(ls && dayCount(JSON.parse(ls))>0) return false; }catch(e){}
+  return true; // nothing better exists, fine to persist the (empty) state
+}
 function save(){
+  if(!safeToWrite()){ /* refuse: an empty state must not overwrite saved days */ return; }
   const json=JSON.stringify(state);
   try{localStorage.setItem(KEY,json);}catch(e){}
   idbSet(KEY,json);
   writeHash(); // the durable copy that rides along in the URL
+  snapshotBackup(); // rolling, untouchable backups (see below)
 }
 // On boot: open IDB, and if localStorage was empty/evicted but IDB has a newer copy, restore it.
 function dayCount(o){ if(!o||!o.days)return 0; let n=0; for(const k in o.days){const d=o.days[k]; if(d&&((d.done&&Object.values(d.done).some(Boolean))||(d.log&&Object.keys(d.log).length)))n++;} return n; }
@@ -1418,19 +1487,22 @@ async function initStorage(){
   try{
     const ls=localStorage.getItem(KEY);
     const idb=await idbGet(KEY);
-    const hashObj=readHash();          // most durable: rides in the URL
+    const hashObj=readHash();          // rides in the URL
     const lsObj = ls?JSON.parse(ls):null;
     const idbObj = idb?JSON.parse(idb):null;
-    // choose the copy with the most real activity
-    const cands=[["hash",hashObj],["idb",idbObj],["ls",lsObj]].filter(c=>c[1]);
+    // ALSO consider the untouchable rolling backups
+    const snaps=await getAllSnapshots();
+    // choose the copy with the most real activity across EVERY source
+    const cands=[["hash",hashObj],["idb",idbObj],["ls",lsObj],...snaps.map((s,i)=>["snap"+i,s])]
+      .filter(c=>c[1]);
     cands.sort((a,b)=>dayCount(b[1])-dayCount(a[1]));
     if(cands.length){
       const best=cands[0][1];
       if(dayCount(best)>dayCount(state)){ state=best; if(!state.weight)state.weight=102; recovered=true; }
     }
   }catch(e){}
-  // write the chosen state back to ALL stores so they're in sync
-  try{ save(); }catch(e){}
+  // Only sync stores when we actually hold data — never write empty over good.
+  try{ if(dayCount(state)>0) save(); }catch(e){}
   return recovered;
 }
 let state = load();
@@ -2016,7 +2088,11 @@ function renderGuide(){
   (async()=>{
     const out=[];
     const standalone = (window.navigator.standalone===true) || matchMedia("(display-mode: standalone)").matches;
+    out.push(`App version: <b style="color:var(--fg)">v${APP_VERSION}</b>`);
     out.push(`Mode: <b style="color:var(--fg)">${standalone?"home-screen app":"browser tab"}</b>`);
+    const lastAuto=(()=>{try{return localStorage.getItem("reset90.lastAutoBackup");}catch(e){return null;}})();
+    const snapN=(await getAllSnapshots()).length;
+    out.push(`Auto-backups: <b style="color:${snapN?'var(--green)':'var(--muted)'}">${snapN} saved</b>${lastAuto?` · last ${new Date(Number(lastAuto)).toLocaleString()}`:""}`);
     // localStorage test
     let lsOk=false; try{ localStorage.setItem("reset90.__t","1"); lsOk=localStorage.getItem("reset90.__t")==="1"; localStorage.removeItem("reset90.__t"); }catch(e){}
     out.push(`localStorage: <b style="color:${lsOk?'var(--green)':'var(--magenta)'}">${lsOk?"working":"BLOCKED"}</b>`);
@@ -2043,7 +2119,9 @@ function renderGuide(){
     <p style="font-size:12.5px;line-height:1.5;color:var(--muted);margin:0 0 12px">Your progress lives only on this device. Back it up regularly — copy the code and keep it somewhere safe (a note to yourself, an email). ${lastBk?`<span style="color:var(--yellow)">Last backup: ${ago===0?"today":ago+"d ago"}.</span>`:`<span style="color:var(--magenta)">Not backed up yet.</span>`}</p>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button class="bkbtn primary" id="bkExport">Copy backup code</button>
+      <button class="bkbtn" id="bkRecover">Recover lost data</button>
     </div>
+    <div id="bkRecMsg" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
     <textarea id="bkBox" readonly placeholder="Your backup code will appear here…" class="bkbox"></textarea>
     <div style="height:12px"></div>
     <h4 style="margin-bottom:6px">Restore from a code</h4>
@@ -2061,6 +2139,24 @@ function renderGuide(){
     if(navigator.clipboard&&navigator.clipboard.writeText){
       navigator.clipboard.writeText(code).then(()=>toast("Backup copied"),()=>toast("Select & copy the code"));
     } else { toast("Select & copy the code"); }
+  });
+  // Recover lost data: scan every store + rolling snapshot, restore the richest copy.
+  bc.querySelector("#bkRecover").addEventListener("click",async()=>{
+    const rm=bc.querySelector("#bkRecMsg"); rm.textContent="Scanning all backups…"; rm.style.color="var(--muted)";
+    try{
+      const ls=(()=>{try{return JSON.parse(localStorage.getItem(KEY));}catch(e){return null;}})();
+      const idbRaw=await idbGet(KEY); const idb=idbRaw?JSON.parse(idbRaw):null;
+      const hash=readHash();
+      const snaps=await getAllSnapshots();
+      const cands=[ls,idb,hash,...snaps].filter(Boolean);
+      if(!cands.length){ rm.textContent="No backups found on this device."; rm.style.color="var(--magenta)"; return; }
+      cands.sort((a,b)=>dayCount(b)-dayCount(a));
+      const best=cands[0]; const n=dayCount(best);
+      if(n<=dayCount(state)){ rm.innerHTML=`No richer copy found — the most complete backup has <b>${n}</b> day${n===1?"":"s"}, same as now. Nothing to restore.`; rm.style.color="var(--yellow)"; return; }
+      state=best; if(!state.weight)state.weight=102; save();
+      rm.innerHTML=`<span style="color:var(--green)">Recovered <b>${n}</b> day${n===1?"":"s"} of activity! Reloading…</span>`;
+      setTimeout(()=>location.reload(),900);
+    }catch(e){ rm.textContent="Recovery failed — nothing readable found."; rm.style.color="var(--magenta)"; }
   });
   bc.querySelector("#bkImport").addEventListener("click",()=>{
     const msg=bc.querySelector("#bkMsg"); const raw=bc.querySelector("#bkIn").value.trim();
@@ -2166,6 +2262,9 @@ async function boot(){
   window.addEventListener("pagehide",flush);
   window.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="hidden")flush(); });
   animateBattle();
+  // auto-update: check now and whenever the app is reopened/foregrounded
+  checkForUpdate();
+  window.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible")checkForUpdate(); });
 }
 boot();
 </script>

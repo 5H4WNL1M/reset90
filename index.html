@@ -249,6 +249,21 @@ main{flex:1;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:m
 .ring .lbl span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-top:3px}
 .ring-txt h3{font-family:var(--num);font-weight:400;font-size:32px;margin-bottom:7px;letter-spacing:-.005em;line-height:.92;text-transform:uppercase}
 .ring-txt p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+.recap{background:linear-gradient(160deg,#17130d,#0b0b0c);border:1px solid var(--line-2);border-radius:var(--r);
+  padding:16px 16px 14px;margin-bottom:12px;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 6px 18px rgba(0,0,0,.3);position:relative;overflow:hidden}
+.recap::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--yellow);box-shadow:0 0 12px rgba(255,225,77,.6)}
+.recap-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.recap-hd .rt{font-family:var(--num);font-size:24px;text-transform:uppercase;letter-spacing:-.01em;line-height:1}
+.recap-hd .rw{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.recap-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+.recap-stat{background:#0c0c0d;border:1px solid var(--line);border-radius:14px;padding:10px 8px;text-align:center}
+.recap-stat .rv{font-family:var(--num);font-size:26px;line-height:.9;color:var(--fg)}
+.recap-stat .rv small{font-size:11px;color:var(--muted);font-family:var(--font);font-weight:700}
+.recap-stat .rl{font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-top:5px}
+.recap-note{font-size:12.5px;line-height:1.45;color:#d9d9d7}
+.recap-note b{color:var(--yellow);font-weight:700}
+.recap-pb{display:inline-block;margin-top:8px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:#0b0b0c;background:var(--yellow);padding:4px 10px;border-radius:99px}
 .chartbox{background:var(--tile);border:1px solid var(--line);border-radius:var(--r);padding:18px 16px 14px;
   box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 6px 18px rgba(0,0,0,.3);margin-bottom:12px}
 .chartbox h3{font-family:var(--num);font-weight:400;font-size:32px;margin-bottom:5px;letter-spacing:-.005em;text-transform:uppercase}
@@ -315,7 +330,7 @@ main{flex:1;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:m
       <div class="battle-wrap">
         <canvas class="battle" id="avatar" width="640" height="180" aria-label="Battle scene"></canvas>
         <div class="widget-top">
-          <span class="wlabel"><span class="wdot"></span> LVL <b id="sLevel" class="num">1</b></span>
+          <span class="wlabel"><span class="wdot" id="sDot"></span> LVL <b id="sLevel" class="num">1</b></span>
           <span style="color:var(--faint)">·</span>
           <span class="wmeta" id="dayCount">DAY 1</span>
         </div>
@@ -380,7 +395,8 @@ main{flex:1;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:m
 
     <!-- PROGRESS -->
     <section class="tab-pane" id="pane-progress" hidden>
-      <div class="daterow"><div style="flex:1"><h2>Shawn Lim</h2><div class="sub" id="charSub">Your 90-day transformation</div></div></div>
+      <div class="daterow"><div style="text-align:center;flex:1"><h2>Shawn Lim</h2><div class="sub" id="charSub">Your ongoing transformation</div></div></div>
+      <div id="recapCard"></div>
       <div class="hero-card" id="charCard"></div>
       <div class="seclabel">Attributes</div>
       <div id="attrSheet"></div>
@@ -400,7 +416,7 @@ main{flex:1;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:m
 
     <!-- GUIDE -->
     <section class="tab-pane" id="pane-guide" hidden>
-      <div class="daterow"><div style="flex:1"><h2>How it works</h2><div class="sub">Your 90-day plan at a glance</div></div></div>
+      <div class="daterow"><div style="text-align:center;flex:1"><h2>How it works</h2><div class="sub">Your plan at a glance</div></div></div>
       <div id="guideBody"></div>
     </section>
   </main>
@@ -731,7 +747,7 @@ const SPR = (() => {
     ctx.restore();
     return w;
   }
-  return {draw,enemyIndexFor,nameFor,HERO_IDX,imgs};
+  return {draw,enemyIndexFor,nameFor,HERO_IDX,imgs,ENEMY_IDX};
 })();
 
 const STAGES_BG=["data:image/jpeg;base64,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",
@@ -808,12 +824,46 @@ function bossTargets(k){
 function battleProgress(k){ const b=bossTargets(k); const total=b.total||1;
   const frac=Math.min(1, b.done/total);
   return {done:b.done,total,frac,raw:b.done/total}; }
+// --- Squad: 3 pillar-minions (Workout / Meals / Rituals) + a boss finisher ---
+// Each minion has its own HP = 1 - (pillar done / pillar target). Boss appears once all 3 fall.
+function daySquad(k){
+  const d=state.days[k]||{done:{}};
+  const w=SCHED[dow(k)];
+  // pillar completion fractions
+  let wDone,wTot;
+  if(w){ const ids=WORKOUTS[w].items.map(it=>it.id); wTot=ids.length; wDone=ids.filter(id=>d.done[id]).length; }
+  else { wTot=1; wDone=d.done["steps"]?1:0; }
+  const mDone=Math.min(3,MEALS.filter(m=>d.done["meal_"+m.id]).length), mTot=3;
+  const rDone=Math.min(3,healthDone(k)), rTot=3;
+  // stable per-day sprite draw for the 3 minions + boss (varies by date, excludes hero)
+  const pool=SPR.ENEMY_IDX; const seed=[...k].reduce((a,c)=>a+c.charCodeAt(0),0);
+  const pick=n=>pool[(seed*7+n*13)%pool.length];
+  const minions=[
+    {pillar:"WORKOUT", label:w?"TRAINING":"MOVEMENT", idx:pick(0), done:wDone,tot:wTot, frac:Math.min(1,wDone/wTot)},
+    {pillar:"MEALS",   label:"NUTRITION", idx:pick(1), done:mDone,tot:mTot, frac:Math.min(1,mDone/mTot)},
+    {pillar:"RITUALS", label:"MIND",      idx:pick(2), done:rDone,tot:rTot, frac:Math.min(1,rDone/rTot)},
+  ];
+  const slain=minions.filter(m=>m.frac>=1).length;
+  const allDown=slain===3;
+  // boss uses a distinct sprite; it is only hittable once the squad is cleared, and dies instantly (finisher)
+  const boss={pillar:"BOSS", label:"DAY BOSS", idx:pick(3), frac:allDown?1:0, appeared:allDown};
+  // current target = first living minion in order, else the boss
+  let current = minions.find(m=>m.frac<1);
+  const onBoss = !current;
+  if(onBoss) current = boss;
+  return {minions, boss, slain, allDown, current, onBoss};
+}
 function animateBattle(){
   const c=document.getElementById("avatar"); if(!c){return;}
   const ctx=c.getContext("2d"); const W=c.width,H=c.height;
   const now=performance.now(); const t=((now-_btT0)/1600)%1;
   const k=viewDate; const prog=battleProgress(k);
-  const eIdx=SPR.enemyIndexFor(k); const defeated=prog.frac>=1;
+  const squad=daySquad(k);
+  const cur=squad.current;            // enemy currently on screen
+  const eIdx=cur.idx;
+  const curFrac=cur.frac;             // this enemy's own damage taken (0..1)
+  const dayWon=squad.allDown;         // boss down => whole day cleared
+  const defeated=squad.onBoss && dayWon; // only the boss shows the big DEFEATED finisher
   ctx.clearRect(0,0,W,H);
   // screen shake: jitter the whole scene briefly after a hit
   ctx.save();
@@ -838,45 +888,71 @@ function animateBattle(){
   const atk = now<_attackUntil ? (1-(_attackUntil-now)/280):0;
   const lunge = atk>0 ? Math.sin(atk*Math.PI)*22 : 0;
   const SH=118; // sprite target height
-  // hero left
-  SPR.draw(ctx,SPR.HERO_IDX, 14+lunge, groundY+hbob, SH, false);
-  // enemy right (facing hero => flip)
-  const im=SPR.imgs[eIdx]; const ew = im&&im.naturalWidth? im.naturalWidth*(SH/im.naturalHeight):90;
-  const ex=W-ew-14;
-  if(defeated){
+  // hero left (sized to match the minions, just a touch taller as the protagonist)
+  const HSH=84;
+  SPR.draw(ctx,SPR.HERO_IDX, 14+lunge, groundY+hbob, HSH, false);
+
+  if(squad.onBoss && dayWon){
+    // ---- BOSS FINISHER: one big enemy, centre-right, dying ----
+    const BSH=130; const im=SPR.imgs[eIdx];
+    const ew=im&&im.naturalWidth? im.naturalWidth*(BSH/im.naturalHeight):100;
+    const ex=W-ew-26;
     if(!_deadBurst)_deadBurst=now;
-    const since=now-_deadBurst; const a=Math.max(0,1-since/560);
-    if(a>0) SPR.draw(ctx,eIdx, ex, groundY+ebob, SH, true, a*0.8, true);
-    const bp=Math.min(1,since/450);
+    const since=now-_deadBurst; const a=Math.max(0,1-since/640);
+    if(a>0) SPR.draw(ctx,eIdx, ex, groundY+ebob, BSH, true, a*0.85, true);
+    const bp=Math.min(1,since/480);
     ctx.fillStyle="#ffe14d";
-    for(let i=0;i<10;i++){const ang=i/10*Math.PI*2; const r=bp*34;
-      const px=ex+ew/2+Math.cos(ang)*r, py=groundY-SH/2+Math.sin(ang)*r;
-      ctx.globalAlpha=1-bp; ctx.fillRect(px-2.5,py-2.5,5,5); ctx.globalAlpha=1;}
-    if(since>200){ ctx.fillStyle="#b4ff39";ctx.font="700 13px Inter,sans-serif";ctx.textAlign="center";
-      ctx.globalAlpha=Math.max(0,1-(since-200)/800); ctx.fillText("DEFEATED", ex+ew/2, groundY-SH-6); ctx.globalAlpha=1; }
-  } else {
-    _deadBurst=0;
-    const flash = now<_hitUntil && (Math.floor(now/70)%2===0);
-    // spawn hit FX from the enemy's body once the lunge connects
+    for(let i=0;i<14;i++){const ang=i/14*Math.PI*2; const r=bp*44;
+      const px=ex+ew/2+Math.cos(ang)*r, py=groundY-BSH/2+Math.sin(ang)*r;
+      ctx.globalAlpha=1-bp; ctx.fillRect(px-3,py-3,6,6); ctx.globalAlpha=1;}
+    if(since>150){ ctx.fillStyle="#b4ff39";ctx.font="800 15px Inter,sans-serif";ctx.textAlign="center";
+      ctx.globalAlpha=Math.max(0,1-(since-150)/900);
+      ctx.fillText("DAY CLEARED", ex+ew/2, groundY-BSH-4); ctx.globalAlpha=1; }
+    // resolve any pending hit on the boss
     if(_pendingHit && now>=_pendingHit.at){
-      const crit = prog.frac>=1; // finishing blow
-      spawnHitFX(ex+ew/2, groundY+ebob-SH*0.5, ATTR_SPARK[_pendingHit.attr]||"#ff6a3d", crit, ex-10);
-      haptic(crit?[30,30,60]:30); // buzz the instant the enemy is struck
-      _pendingHit=null;
+      spawnHitFX(ex+ew/2, groundY+ebob-BSH*0.5, "#ff2d6b", true, ex-10);
+      haptic([30,30,60]); _pendingHit=null;
     }
-    SPR.draw(ctx,eIdx, ex, groundY+ebob, SH, true, 1, flash);
-    // HP bar
-    const bw=Math.max(ew,70), bx=ex+(ew-bw)/2, by=groundY-SH-14;
-    ctx.fillStyle="#000";ctx.fillRect(bx,by,bw,8);
-    ctx.fillStyle="#ff2d3a";ctx.fillRect(bx,by,bw*(1-prog.frac),8);
-    ctx.strokeStyle="#333";ctx.lineWidth=1;ctx.strokeRect(bx+.5,by+.5,bw-1,7);
-    ctx.fillStyle="#d4d4d6";ctx.font="800 16px Inter,sans-serif";ctx.textAlign="center";
-    ctx.fillText(SPR.nameFor(eIdx), ex+ew/2, by-7);
-  }
-  // also allow a pending hit to resolve on the finishing frame (enemy may be defeated this tick)
-  if(_pendingHit && now>=_pendingHit.at){
-    spawnHitFX(ex+ew/2, groundY+ebob-SH*0.5, ATTR_SPARK[_pendingHit.attr]||"#ff6a3d", true, ex-10);
-    _pendingHit=null;
+  } else {
+    // ---- THREE MINIONS AT ONCE, each with its own HP ----
+    _deadBurst=0;
+    const MSH=78;                        // minion sprite height
+    const slotW=(W*0.60)/3;              // right 60% split into 3 columns
+    const x0=W*0.40;
+    // resolve a pending hit → find the enemy for its pillar, spark it
+    let hitInfo=null;
+    if(_pendingHit && now>=_pendingHit.at){ hitInfo=_pendingHit; _pendingHit=null; }
+    squad.minions.forEach((m,i)=>{
+      const im=SPR.imgs[m.idx];
+      const ew=im&&im.naturalWidth? im.naturalWidth*(MSH/im.naturalHeight):64;
+      const cx=x0 + slotW*i + slotW/2;   // column centre
+      const ex=cx-ew/2;
+      const dead=m.frac>=1;
+      const mbob=Math.sin(t*Math.PI*2 + i*1.3)*3;
+      const isHit = hitInfo && hitInfo.pillar===m.pillar;
+      if(isHit){
+        const crit = m.frac>=1;          // this tick finished the pillar
+        spawnHitFX(cx, groundY+mbob-MSH*0.5, ATTR_SPARK[hitInfo.attr]||"#ff6a3d", crit, ex-8);
+        haptic(crit?[30,30,60]:30);
+      }
+      const flash = (now<_hitUntil && isHit!==false && (Math.floor(now/70)%2===0));
+      // draw sprite (dead ones faded)
+      SPR.draw(ctx,m.idx, ex, groundY+mbob, MSH, true, dead?0.3:1, flash && !dead);
+      // HP bar above each
+      const bw=Math.max(ew,52), bx=cx-bw/2, by=groundY-MSH-20;
+      if(dead){
+        ctx.fillStyle="#b4ff39";ctx.font="800 11px Inter,sans-serif";ctx.textAlign="center";
+        ctx.fillText("✓", cx, by+4);
+      } else {
+        ctx.fillStyle="#000";ctx.fillRect(bx,by,bw,6);
+        ctx.fillStyle="#ff2d3a";ctx.fillRect(bx,by,bw*(1-m.frac),6);
+        ctx.strokeStyle="#333";ctx.lineWidth=1;ctx.strokeRect(bx+.5,by+.5,bw-1,5);
+      }
+      // pillar label under the HP bar
+      ctx.fillStyle=dead?"rgba(180,255,57,.8)":"rgba(255,255,255,.7)";
+      ctx.font="800 9px Inter,sans-serif";ctx.textAlign="center";
+      ctx.fillText(m.label, cx, by-5);
+    });
   }
   // elemental hit flash in the middle
   if(_fxEmoji && now<_fxUntil){
@@ -954,12 +1030,18 @@ function drawHitFX(ctx){
   }
   ctx.globalAlpha=1;
 }
-function battleHit(attr){
+// which squad enemy an activity id hits: meals, rituals, or workout(movement)
+function pillarOf(id){
+  if(id&&id.indexOf("meal_")===0) return "MEALS";
+  if(HEALTH.some(h=>h.id===id)) return "RITUALS";
+  return "WORKOUT"; // lifts, steps, zone2, core
+}
+function battleHit(attr,pillar){
   _attackUntil=performance.now()+280; _hitUntil=performance.now()+280;
   const pool=HIT_FX[attr]||HIT_FX.STR;
   _fxEmoji=pool[Math.floor(Math.random()*pool.length)];
   _fxUntil=performance.now()+520;
-  _pendingHit={attr,at:performance.now()+140}; // spawn FX mid-lunge, once we know enemy position
+  _pendingHit={attr,pillar,at:performance.now()+140}; // spawn FX mid-lunge, once we know enemy position
 }
 let _pendingHit=null;
 
@@ -1253,6 +1335,21 @@ function healthDone(k){ const d=state.days[k]||{done:{}}; return healthFor(k).fi
 /* ---------- Character rating titles by overall level ---------- */
 const TITLES=["Novice","Starter","Committed","Disciplined","Forged","Relentless","Ascendant","Unbreakable"];
 function titleFor(lvl){ return TITLES[Math.min(lvl-1,TITLES.length-1)]||"Legend"; }
+// rank colour for the LVL dot — shifts up the spectrum as you level, tops out gold then white-hot
+const RANK_COLORS=[
+  "#9aa0a8", // Novice   — grey
+  "#4da3ff", // Starter  — blue
+  "#38e0c4", // Committed— teal
+  "#b4ff39", // Disciplined — green
+  "#ffe14d", // Forged   — yellow
+  "#ff9f1c", // Relentless — amber
+  "#ff5a1f", // Ascendant — orange
+  "#ff2d6b", // Unbreakable — magenta
+  "#ffffff", // Legend (9+) — white-hot
+];
+function rankColor(lvl){ return RANK_COLORS[Math.min(lvl-1,RANK_COLORS.length-1)]||RANK_COLORS[0]; }
+function applyRankDot(lvl){ const d=document.getElementById("sDot"); if(!d)return;
+  const c=rankColor(lvl); d.style.background=c; d.style.boxShadow=`0 0 10px ${c}b3`; }
 
 const BADGES = [
   {id:"first",ic:"🌱",nm:"First Step",bd:"Complete day 1",test:s=>daysWithAny(s)>=1},
@@ -1613,7 +1710,7 @@ function toggle(id,pts,chk,card){
   card.classList.toggle("done",now);
   save();
   if(now){
-    burst(pts); battleHit(attrOf(id));
+    burst(pts); battleHit(attrOf(id), pillarOf(id));
     // the buzz is fired in sync with the on-screen impact (see spawnHitFX trigger), not here
   }
   afterChange();
@@ -1743,12 +1840,72 @@ function bodyPct(k){ // workouts + movement
   return ids.filter(id=>d.done[id]).length/ids.length; }
 function healthPct(k){ return Math.min(healthDone(k),HEALTH_GOAL)/HEALTH_GOAL; }
 
+// --- Weekly recap (Mon–Sun) shown at top of Character ---
+function weekKeys(anchorKey){ // the Mon..today(or Sun) keys for the week containing anchor
+  const d=parseKey(anchorKey); const day=(d.getDay()+6)%7; // 0=Mon
+  const mon=new Date(d); mon.setDate(d.getDate()-day);
+  const out=[]; for(let i=0;i<7;i++){ const x=new Date(mon); x.setDate(mon.getDate()+i);
+    const key=todayKey(x); if(key>todayKey())break; out.push(key); } return out;
+}
+function weekStats(keys){
+  let slain=0, protSum=0, protDays=0, stepDays=0, logged=0;
+  keys.forEach(k=>{
+    if(daySquad(k).allDown) slain++;
+    const n=dayNutrition(k); if(n.logged>0){ protSum+=n.protein; protDays++; }
+    const d=state.days[k]; if(d&&d.done&&d.done["steps"]) stepDays++;
+    if(d&&(Object.keys(d.done||{}).length||Object.keys(d.log||{}).length)) logged++;
+  });
+  return {slain, avgProt:protDays?Math.round(protSum/protDays):0, stepDays, logged, days:keys.length};
+}
+function allPriorWeeks(){ // list of {keys} for each week from start up to last week
+  const weeks=[]; let cur=weekKeys(todayKey())[0]; // this week's Monday
+  let d=parseKey(cur); d.setDate(d.getDate()-7);
+  const start=parseKey(startDate());
+  while(d>=start || weeks.length<1){ const k=todayKey(d); const wk=weekKeys(k);
+    if(wk.length) weeks.push(wk); d.setDate(d.getDate()-7); if(d<start && weeks.length>12) break; }
+  return weeks;
+}
+function renderRecap(){
+  const box=$("#recapCard"); if(!box) return;
+  const keys=weekKeys(todayKey()); const s=weekStats(keys);
+  const mon=parseKey(keys[0]), sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  const fmt=d=>d.toLocaleDateString(undefined,{day:"numeric",month:"short"});
+  // personal-best checks vs prior weeks
+  const priors=allPriorWeeks().map(weekStats).filter(w=>w.logged>0);
+  const bestSlain=priors.length?Math.max(...priors.map(w=>w.slain)):0;
+  const bestProt =priors.length?Math.max(...priors.map(w=>w.avgProt)):0;
+  let pb="";
+  if(s.slain>0 && s.slain>=bestSlain && s.slain>=3) pb="Best boss week yet";
+  else if(s.avgProt>0 && s.avgProt>bestProt) pb="Best protein week yet";
+  // narrative line
+  let note;
+  if(s.logged===0) note="No activity logged this week yet — slay today's enemies to get the week started.";
+  else {
+    const bits=[];
+    bits.push(`<b>${s.slain}/${s.days}</b> ${s.slain===1?"boss":"bosses"} slain`);
+    if(s.avgProt) bits.push(`<b>${s.avgProt}g</b> avg protein`);
+    if(s.stepDays) bits.push(`<b>${s.stepDays}</b> step ${s.stepDays===1?"day":"days"}`);
+    note=bits.join(" · ")+".";
+  }
+  box.innerHTML=`<div class="recap">
+    <div class="recap-hd"><span class="rt">This week</span><span class="rw">${fmt(mon)} – ${fmt(sun)}</span></div>
+    <div class="recap-grid">
+      <div class="recap-stat"><div class="rv">${s.slain}<small>/${s.days}</small></div><div class="rl">Bosses</div></div>
+      <div class="recap-stat"><div class="rv">${s.avgProt}<small>g</small></div><div class="rl">Avg protein</div></div>
+      <div class="recap-stat"><div class="rv">${s.stepDays}</div><div class="rl">Step days</div></div>
+      <div class="recap-stat"><div class="rv">${state.weight}<small>kg</small></div><div class="rl">Weight</div></div>
+    </div>
+    <div class="recap-note">${note}</div>
+    ${pb?`<span class="recap-pb">★ ${pb}</span>`:""}
+  </div>`;
+}
 function renderProgress(){
+  renderRecap();
   const xp=totalXp(state), lvl=levelFromXp(xp), inLvl=xp%100;
   // character card
   const sd=parseKey(startDate()), now=parseKey(todayKey());
-  const dn=Math.min(Math.floor((now-sd)/86400000)+1,90);
-  $("#charSub").textContent=`Day ${dn} of 90 · ${titleFor(lvl)}`;
+  const dn=Math.floor((now-sd)/86400000)+1;
+  $("#charSub").textContent=`Day ${dn} · ${titleFor(lvl)}`;
   $("#charCard").innerHTML=`
     <div class="charhead">
       <div class="charbadge"><span class="hero-num">${lvl}</span></div>
@@ -1834,6 +1991,24 @@ function renderGuide(){
   wc.querySelector("#wMinus").addEventListener("click",()=>{state.weight=Math.max(40,state.weight-1);save();refreshW();});
   wc.querySelector("#wPlus").addEventListener("click",()=>{state.weight=Math.min(250,state.weight+1);save();refreshW();});
 
+  // ---- How-it-works explainer blocks (shown before the storage/backup tools) ----
+  const blocks=[
+    {h:"Weekly rhythm",p:"Mon · Day A — Wed · Day B — Fri · Day C. Tuesday and Saturday are your Zone 2 cardio days. Walk every day. Sunday is active recovery."},
+    {h:"Your character",p:"Every habit feeds one of four attributes — Strength (lifting), Discipline (meals & order), Vitality (movement, sleep, water) and Clarity (mindfulness & learning). Complete habits to level each one up and raise your overall rating from Novice toward Unbreakable."},
+    {h:"How points work",p:"Workout moves are 12 XP, cardio/steps 8 XP, meals 6 XP, and wellness rituals 6–10 XP each. Finish everything in a day for a 20 XP perfect-day bonus. 100 XP per character level."},
+    {h:"How the boss works",p:"Each day you face three enemies — Training, Nutrition and Mind. Finish that pillar's work to slay its enemy: on workout days all your lifts (or the walk on rest days), 3 logged meals, and 3 rituals. Clear all three and the day's boss falls. Extra meals and bonus moves earn XP but aren't needed to win."},
+    {h:"Rituals",p:"Three to four wellness habits rotate in each day on the Health tab — meditation, gratitude, sleep, water, reading and more. Small daily acts that compound over time."},
+    {h:"Streaks",p:"Any day you check off at least one thing keeps your streak alive. Your best streak unlocks badges — 3, 7, then 21 days."},
+    {h:"Making 10kg keep working",p:"Slow the lowering to 3–4 seconds, add reps before load, pause at the hardest point, and cut rest to 45–60s as you get fitter. Single-leg moves double the effective load."},
+    {h:"The targets",p:"Roughly 2,100–2,300 kcal and 150–180g protein daily, building toward 8,000–10,000 steps (5.8–7.2 km). Recalculate every 3–4 weeks as your weight drops."},
+    {h:"Your data",p:"Everything you tick is saved privately on this device only — no account, no internet needed. Add this page to your home screen to open it like an app. Use the backup tools below to keep a safe copy."},
+  ];
+  blocks.forEach(b=>{
+    const c=el("div","card");c.style.padding="14px 16px";c.style.cursor="default";
+    c.innerHTML=`<h4 style="margin-bottom:6px">${b.h}</h4><p style="font-size:13.5px;line-height:1.55;color:#d9d9d7">${b.p}</p>`;
+    body.appendChild(c);
+  });
+
   // ---- Storage diagnostic ----
   const diag=el("div","card");diag.style.padding="16px 18px";diag.style.cursor="default";diag.style.setProperty("--c","var(--blue)");
   diag.innerHTML=`<h4 style="margin-bottom:8px">Storage check</h4><div id="diagBody" style="font-size:12.5px;line-height:1.6;color:var(--muted)">Running…</div>`;
@@ -1903,21 +2078,6 @@ function renderGuide(){
     }catch(e){ msg.textContent="That code doesn't look valid."; msg.style.color="var(--magenta)"; }
   });
 
-  const blocks=[
-    {h:"Weekly rhythm",p:"Mon · Day A — Wed · Day B — Fri · Day C. Tuesday and Saturday are your Zone 2 cardio days. Walk every day. Sunday is active recovery."},
-    {h:"Your character",p:"Every habit feeds one of four attributes — Strength (lifting), Discipline (meals & order), Vitality (movement, sleep, water) and Clarity (mindfulness & learning). Complete habits to level each one up and raise your overall rating from Novice toward Unbreakable."},
-    {h:"How points work",p:"Workout moves are 12 XP, cardio/steps 8 XP, meals 6 XP, and wellness rituals 6–10 XP each. Finish everything in a day for a 20 XP perfect-day bonus. 100 XP per character level."},
-    {h:"Rituals",p:"Three to four wellness habits rotate in each day on the Health tab — meditation, gratitude, sleep, water, reading and more. Small daily acts that compound over 90 days."},
-    {h:"Streaks",p:"Any day you check off at least one thing keeps your streak alive. Your best streak unlocks badges — 3, 7, then 21 days."},
-    {h:"Making 10kg keep working",p:"Slow the lowering to 3–4 seconds, add reps before load, pause at the hardest point, and cut rest to 45–60s as you get fitter. Single-leg moves double the effective load."},
-    {h:"The targets",p:"Roughly 2,100–2,300 kcal and 150–180g protein daily, building toward 8,000–10,000 steps (5.8–7.2 km). Recalculate every 3–4 weeks as your weight drops."},
-    {h:"Your data",p:"Everything you tick is saved privately on this device only — no account, no internet needed. Add this page to your home screen to open it like an app."},
-  ];
-  blocks.forEach((b,i)=>{
-    const c=el("div","card");c.style.padding="14px 16px";c.style.cursor="default";
-    c.innerHTML=`<h4 style="margin-bottom:6px">${b.h}</h4><p style="font-size:13.5px;line-height:1.55;color:#d9d9d7">${b.p}</p>`;
-    body.appendChild(c);
-  });
 }
 
 /* ring svg helper */
@@ -1936,13 +2096,14 @@ function afterChange(){
   const streak=recomputeStreak(); save();
   const xp=totalXp(state), lvl=levelFromXp(xp), inLvl=xp%100;
   $("#sLevel").textContent=lvl; $("#sStreak").textContent=streak; $("#sPts").textContent=xp;
+  applyRankDot(lvl);
   $("#xpFill").style.width=inLvl+"%";
   $("#xpNow").innerHTML=`<b>${inLvl}</b>/100 TO NEXT`;
   $("#xpNext").textContent=`LEVEL ${lvl+1}`;
   // day number
   const sd=parseKey(startDate()), now=parseKey(todayKey());
   const dn=Math.floor((now-sd)/86400000)+1;
-  $("#dayCount").textContent=`Day ${Math.min(dn,90)}`;
+  $("#dayCount").textContent=`Day ${dn}`;
   renderAttrStrip();
   // re-render active panes that show derived data
   if(current==="progress")renderProgress();
